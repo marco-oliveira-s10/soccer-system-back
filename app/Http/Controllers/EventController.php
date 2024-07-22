@@ -10,6 +10,39 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class EventController extends Controller
 {
+
+    public function listEventPagination(Request $request)
+    {
+        $page = $request->query('page', 1);
+        $perPage = $request->query('perPage', 10);
+
+        $events = Event::with('location')
+        ->orderBy('id_event', 'DESC')
+        ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json($events);
+    }
+
+    public function filterEventsByName(Request $request)
+    {
+        try {
+
+            $page = $request->query('page', 1);
+            $perPage = $request->query('perPage', 10);
+
+            $name = $request->query('name');
+
+            if (empty($name)) {
+                throw new Exception('Name was not provided.');
+            }
+            $locations = Event::with('location')->where('name_event', 'like', '%' . $name . '%')->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json($locations);
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function createEvent(Request $request)
     {
         DB::beginTransaction();
@@ -92,29 +125,6 @@ class EventController extends Controller
         return response()->json(['message' => 'Player added to team.'], 201);
     }
 
-    public function listEventPagination(Request $request)
-    {
-        $page = $request->query('page', 1);
-        $perPage = $request->query('perPage', 10);
-
-        $events = Event::with('location')->paginate($perPage, ['*'], 'page', $page);
-
-        return response()->json($events);
-    }
-
-    public function filterEventsByName(Request $request)
-    {
-        $name = $request->query('name');
-
-        if (empty($name)) {
-            return response()->json(['error' => 'The registry name was not provided.'], 400);
-        }
-
-        $events = Event::where('name_event', 'like', "%{$name}%")->get();
-
-        return response()->json($events);
-    }
-
     public function getTotalEvents()
     {
         $total = Event::count();
@@ -149,26 +159,59 @@ class EventController extends Controller
         return response()->json($event);
     }
 
+    public function createPlayerDraw()
+    {
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        if (!$data || !isset($data['confirmados']) || !isset($data['numeroplayersPorTime'])) {
+
+            return response()->json(["error" => "Invalid playload"]);
+            exit;
+        }
+
+        $confirmados = $data['confirmados'];
+        $numeroPlayersPorTime = $data['numeroplayersPorTime'];
+        $goleiros = [];
+        $outrosJogadores = [];
+
+        foreach ($confirmados as $jogador) {
+            if ($jogador['position_player'] == 'GOL') {
+                $goleiros[] = $jogador;
+            } else {
+                $outrosJogadores[] = $jogador;
+            }
+        }
+
+        list($timesPrincipais, $reservas) = $this->distributePlayersInTimes($outrosJogadores, $numeroPlayersPorTime, $goleiros);
+
+        $response = [
+            'principais' => $timesPrincipais,
+            'reservas' => $reservas
+        ];
+
+        return response()->json($response);
+    }
+
     public function shufflePlayers($players) {
         shuffle($players);
         return $players;
     }
 
     public function distributePlayersInTimes($jogadores, $numeroPorTime, &$goleiros) {
-        
+
         $times = [];
         $reservas = []; 
         $jogadores = $this->shufflePlayers($jogadores); 
         $goleiros = $this->shufflePlayers($goleiros);
-        
+
         if (empty($jogadores) && empty($goleiros)) {
             return response()->json(["error" => "There are no players to distribute."]);
             exit;
         }
-        
+
         while (count($jogadores) >= $numeroPorTime || !empty($goleiros)) {
             $timeAtual = [];
-            
+
             if (empty(array_filter($timeAtual, function($jogador) {
 
                 return $jogador['position_player'] == 'GOL';
@@ -203,7 +246,6 @@ class EventController extends Controller
             while (count($timeAtual) < $numeroPorTime && !empty($jogadores)) {
 
                 $timeAtual[] = array_shift($jogadores);
-
             }
 
             $temGoleiro = array_filter($timeAtual, function($jogador) {
@@ -261,38 +303,5 @@ class EventController extends Controller
         }
 
         return [$times, $reservas];
-    }
-
-    public function createPlayerDraw()
-    {
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        if (!$data || !isset($data['confirmados']) || !isset($data['numeroplayersPorTime'])) {
-
-            return response()->json(["error" => "Invalid playload"]);
-            exit;
-        }
-
-        $confirmados = $data['confirmados'];
-        $numeroPlayersPorTime = $data['numeroplayersPorTime'];
-        $goleiros = [];
-        $outrosJogadores = [];
-
-        foreach ($confirmados as $jogador) {
-            if ($jogador['position_player'] == 'GOL') {
-                $goleiros[] = $jogador;
-            } else {
-                $outrosJogadores[] = $jogador;
-            }
-        }
-
-        list($timesPrincipais, $reservas) = $this->distributePlayersInTimes($outrosJogadores, $numeroPlayersPorTime, $goleiros);
-
-        $response = [
-            'principais' => $timesPrincipais,
-            'reservas' => $reservas
-        ];
-       
-        return response()->json($response);
     }
 }

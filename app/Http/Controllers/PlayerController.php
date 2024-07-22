@@ -85,7 +85,7 @@ class PlayerController extends Controller
         try {
             $player = Player::findOrFail($id);
             $player->update([
-                'name_player' => 'Player Removed',
+                'name_player' => 'Jogador Removido',
                 'level_player' => 0,
                 'position_player' => '',
                 'age_player' => 0,
