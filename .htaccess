@@ -1,0 +1,9 @@
+IfModule mod_rewrite.c>
+    # Habilitar o módulo de reescrita
+    RewriteEngine On
+
+    # Redirecionar todas as requisições para o index.php
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
