@@ -27,6 +27,10 @@ class LocationController extends Controller
     public function filterLocationsByName(Request $request)
     {
         try {
+            
+            $page = $request->query('page', 1);
+            $perPage = $request->query('perPage', 10);
+
             $name = $request->query('name');
 
             if (empty($name)) {
@@ -35,7 +39,7 @@ class LocationController extends Controller
 
             $locations = Location::where('name_location', 'like', '%' . $name . '%')
             ->where('name_location', '!=', 'Local removido')
-            ->get();
+            ->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json($locations);
         } catch (Exception $e) {

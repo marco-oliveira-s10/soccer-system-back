@@ -27,6 +27,10 @@ class PlayerController extends Controller
     public function filterPlayersByName(Request $request)
     {
         try {
+            
+            $page = $request->query('page', 1);
+            $perPage = $request->query('perPage', 10);
+
             $name = $request->query('name');
 
             if (empty($name)) {
@@ -35,7 +39,7 @@ class PlayerController extends Controller
 
             $players = Player::where('position_player', '!=', '')
             ->where('name_player', 'like', '%' . $name . '%')
-            ->get();
+            ->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json($players);
         } catch (\Exception $e) {
